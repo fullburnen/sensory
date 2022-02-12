@@ -1,6 +1,5 @@
 #include <Adafruit_BMP280.h>
-#include <Adafruit_MQTT.h>
-#include <Adafruit_MQTT_Client.h>
+#include <ArduinoMqttClient.h>
 #include <WiFi101.h>
 
 #include "arduino_secrets.h"
@@ -25,10 +24,8 @@ char mqtt_topic_temperature[] = MQTT_TOPIC_TEMPERATURE;
 char sensor_name[] = SENSOR_NAME;
 char sensor_name_nice[] = SENSOR_NAME_NICE;
 
-WiFiClient client;
-Adafruit_MQTT_Client mqtt( &client, mqtt_server, mqtt_port, mqtt_username, mqtt_password ); 
-Adafruit_MQTT_Publish mqtt_config = Adafruit_MQTT_Publish( &mqtt, mqtt_topic_config );
-Adafruit_MQTT_Publish mqtt_temperature = Adafruit_MQTT_Publish( &mqtt, mqtt_topic_temperature );
+WiFiClient wifi_client;
+MqttClient mqtt_client( wifi_client );
 
 void setup() {
     setup_serial( false );
@@ -54,6 +51,7 @@ void setup() {
 
     setup_wifi();
     setup_mqtt();
+    send_config();
 }
 
 void loop() {
@@ -69,13 +67,14 @@ void loop() {
     wifi_status = WiFi.status();
     if ( wifi_status != WL_CONNECTED ) {
         Serial.print( "Connection lost" );
-        mqtt.disconnect();
+        mqtt_client.stop();
         WiFi.end();
         wifi_status = WiFi.status();
         setup_wifi();
     }
-    if ( !mqtt.connected() ) {
+    if ( !mqtt_client.connected() ) {
         setup_mqtt();
+        send_config();
     }
 
     read_temperature( &temperature );
@@ -115,14 +114,38 @@ void setup_wifi() {
 }
 
 void setup_mqtt() {
-    int8_t ret = -1;
+    Serial.print( "Connecting to broker" );
+    Serial.println( mqtt_server );
 
-    while ( ret != 0 ) {
-        ret = mqtt.connect();
+    mqtt_client.setId( sensor_name );
+    mqtt_client.setUsernamePassword( mqtt_username, mqtt_password );
+
+    while ( !mqtt_client.connect( mqtt_server, mqtt_port ) ) {
+        Serial.print( "Error: " );
+        Serial.println( mqtt_client.connectError() );
         delay( 10000 );
     }
+}
 
-    //send_config();
+void setup_serial( bool blocking ) {
+    Serial.begin( 115200 );
+
+    if ( blocking ) {
+        while ( !Serial ) {
+            ;
+        }
+    }
+}
+
+bool mqtt_publish( MqttClient *client, char *topic, char *buf, bool retain = false, uint8_t qos = 0, bool dup = false ) {
+    int ret = 0;
+    ret = client->beginMessage( topic, strlen( buf ), retain, qos, dup );
+    if ( ret == 1 ) {
+        client->print( buf );
+        ret = client->endMessage();
+    }
+
+    return ( ret == 1 );
 }
 
 void send_config() {
@@ -130,7 +153,7 @@ void send_config() {
     snprintf( buf, sizeof( buf ), "{\"unique_id\":\"%s_temp\",\"state_topic\":\"homeassistant/sensor/%s/state\",\"name\":\"%s Temperature\",\"device_class\":\"temperature\",\"unit_of_measurement\":\"°F\",\"value_template\":\"{{ value_json.temperature }}\",\"device\":{\"name\":\"%s\",\"identifiers\":\"%s\"}}", sensor_name, sensor_name, sensor_name_nice, sensor_name_nice, sensor_name );
     buf[sizeof( buf ) - 1] = '\0';
 
-    if ( !mqtt_config.publish( buf ) ) {
+    if ( !mqtt_publish( &mqtt_client, mqtt_topic_config, buf, true, 0, false ) ) {
         Serial.print( "Failed to publish config: " );
         Serial.println( buf );
     }
@@ -158,22 +181,12 @@ void send_temperature( float* temperature_f ) {
     snprintf( buf, sizeof( buf ), "{\"temperature\":%.2f}", temperature );
     buf[sizeof( buf ) - 1] = '\0';
 
-    if ( !mqtt_temperature.publish( buf ) ) {
+    if ( !mqtt_publish( &mqtt_client, mqtt_topic_temperature, buf, false, 0, false ) ) {
         Serial.print( "Failed to publish temperature: " );
         Serial.println( buf );
     }
     else {
         Serial.print( "Published: " );
         Serial.println( buf );
-    }
-}
-
-void setup_serial( bool blocking ) {
-    Serial.begin( 115200 );
-
-    if ( blocking ) {
-        while ( !Serial ) {
-            ;
-        }
     }
 }
