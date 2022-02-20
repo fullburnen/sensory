@@ -1,4 +1,4 @@
-MQTT sensor for Home Assistant
+Sensory
 ---
 
 A simple Arduino sensor for Home Assistant that reports over MQTT. Supports Home Assistant's MQTT Discovery.
