@@ -1,10 +1,12 @@
-#include <Adafruit_BMP280.h>
 #include <ArduinoMqttClient.h>
 #include <WiFi101.h>
 
-#include "arduino_secrets.h"
+#include "user_config.h"
 
-#define LOOP_INTERVAL 60000
+#ifdef USE_BMP280
+#include <Adafruit_BMP280.h>
+#define REPORT_TEMPERATURE
+#endif
 
 //Wifi globals
 char ssid[] = SECRET_SSID;
@@ -12,7 +14,9 @@ char pass[] = SECRET_PASS;
 int wifi_status = WL_IDLE_STATUS;
 
 //Sensor globals
+#ifdef USE_BMP280
 Adafruit_BMP280 sensor;
+#endif
 
 //MQTT globals
 char mqtt_server[] = MQTT_SERVER;
@@ -30,12 +34,14 @@ MqttClient mqtt_client( wifi_client );
 void setup() {
     setup_serial( false );
 
+#ifdef USE_BMP280
     if ( !sensor.begin() ) {
         Serial.println( "Could not find a valid sensor" );
         delay( 1000 );
     }
 
     sensor.setSampling( Adafruit_BMP280::MODE_FORCED, Adafruit_BMP280::SAMPLING_X2, Adafruit_BMP280::SAMPLING_X16, Adafruit_BMP280::FILTER_X16, Adafruit_BMP280::STANDBY_MS_500 );
+#endif
 
     //For Adafruit ATWINC1500
     WiFi.setPins( 8, 7, 4, 2 );
@@ -55,7 +61,9 @@ void setup() {
 }
 
 void loop() {
+#ifdef REPORT_TEMPERATURE
     float temperature = -999.00;
+#endif
 
     digitalWrite( 13, HIGH );
     delay( 1000 );
@@ -77,16 +85,19 @@ void loop() {
         send_config();
     }
 
+#ifdef REPORT_TEMPERATURE
     read_temperature( &temperature );
     if ( temperature != -999 ) {
         send_temperature( &temperature );
     }
+#endif
 
     digitalWrite( 13, LOW );
 
-    delay( LOOP_INTERVAL );
+    delay( REPORT_INTERVAL );
 }
 
+#ifdef REPORT_TEMPERATURE
 void read_temperature( float* temperature_f ) {
     if ( sensor.takeForcedMeasurement() ) {
         *temperature_f = sensor.readTemperature() * 9 / 5 + 32;
@@ -101,6 +112,7 @@ void read_temperature( float* temperature_f ) {
         *temperature_f = -999.00;
     }
 }
+#endif
 
 void setup_wifi() {
     while ( wifi_status != WL_CONNECTED ) {
@@ -163,6 +175,7 @@ void send_config() {
     }
 }
 
+#ifdef REPORT_TEMPERATURE
 void send_temperature( float* temperature_f ) {
     float temperature = 0.00;
     char buf[23]; // {"temperature":-xxx}
@@ -190,3 +203,4 @@ void send_temperature( float* temperature_f ) {
         Serial.println( buf );
     }
 }
+#endif
