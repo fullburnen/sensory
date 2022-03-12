@@ -15,7 +15,9 @@
 #define MQTT_TOPIC_TEMPERATURE "homeassistant/sensor/" SENSOR_NAME "/state"
 
 //Sensor information
-#define USE_BMP280
+//#define USE_BMP280
+#define USE_SHT31
+//#define USE_ALT_ADDRESS
 
 //Read sensors and publish to server every x milliseconds
 #define REPORT_INTERVAL 60000

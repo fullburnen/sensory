@@ -6,6 +6,9 @@
 #ifdef USE_BMP280
 #include <Adafruit_BMP280.h>
 #define REPORT_TEMPERATURE
+#elif defined( USE_SHT31 )
+#include <Adafruit_SHT31.h>
+#define REPORT_TEMPERATURE
 #endif
 
 //Wifi globals
@@ -16,6 +19,13 @@ int wifi_status = WL_IDLE_STATUS;
 //Sensor globals
 #ifdef USE_BMP280
 Adafruit_BMP280 sensor;
+#elif defined( USE_SHT31 )
+Adafruit_SHT31 sensor;
+#endif
+
+bool alt_address = false;
+#ifdef USE_ALT_ADDRESS
+alt_address = true;
 #endif
 
 //MQTT globals
@@ -33,14 +43,22 @@ MqttClient mqtt_client( wifi_client );
 
 void setup() {
     setup_serial( false );
+    Serial.println( "Booting" );
 
 #ifdef USE_BMP280
-    if ( !sensor.begin() ) {
-        Serial.println( "Could not find a valid sensor" );
+    if ( !sensor.begin( alt_address ? BMP280_ADDRESS_ALT : BMP280_ADDRESS ) ) {
+        Serial.println( "Could not find a valid BMP280 sensor" );
         delay( 1000 );
     }
-
+    Serial.println( "Set up BMP280 sensor" );
     sensor.setSampling( Adafruit_BMP280::MODE_FORCED, Adafruit_BMP280::SAMPLING_X2, Adafruit_BMP280::SAMPLING_X16, Adafruit_BMP280::FILTER_X16, Adafruit_BMP280::STANDBY_MS_500 );
+#elif defined( USE_SHT31 )
+    if ( !sensor.begin( alt_address ? 0x45 : SHT31_DEFAULT_ADDR ) ) {
+        Serial.println( "Could not find a valid SHT31 sensor" );
+        delay( 1000 );
+    }
+    Serial.println( "Set up SHT31 sensor" );
+    sensor.heater( false );
 #endif
 
     //For Adafruit ATWINC1500
@@ -58,11 +76,13 @@ void setup() {
     setup_wifi();
     setup_mqtt();
     send_config();
+
+    Serial.println( "Boot done" );
 }
 
 void loop() {
 #ifdef REPORT_TEMPERATURE
-    float temperature = -999.00;
+    float temperature = NAN;
 #endif
 
     digitalWrite( 13, HIGH );
@@ -87,7 +107,7 @@ void loop() {
 
 #ifdef REPORT_TEMPERATURE
     read_temperature( &temperature );
-    if ( temperature != -999 ) {
+    if ( !isnan( temperature ) ) {
         send_temperature( &temperature );
     }
 #endif
@@ -99,24 +119,27 @@ void loop() {
 
 #ifdef REPORT_TEMPERATURE
 void read_temperature( float* temperature_f ) {
+    float temperature_c = NAN;
+    *temperature_f = NAN;
+#ifdef USE_BMP280
     if ( sensor.takeForcedMeasurement() ) {
-        *temperature_f = sensor.readTemperature() * 9 / 5 + 32;
-        /*
-        Serial.print( "Temperature is: " );
-        Serial.print( *temperature_f );
-        Serial.println( " F" );
-        */
+        temperature_c = sensor.readTemperature();
     }
-    else {
+#elif defined( USE_SHT31 )
+    temperature_c = sensor.readTemperature();
+#endif
+    if ( !isnan( temperature_c ) ) {
+        *temperature_f = temperature_c * 9 / 5 + 32;
+    }
+    if ( isnan( *temperature_f ) ) {
         Serial.println( "Unable to take measurement" );
-        *temperature_f = -999.00;
     }
 }
 #endif
 
 void setup_wifi() {
     while ( wifi_status != WL_CONNECTED ) {
-        Serial.print( "Connecting to " );
+        Serial.print( "Connecting to SSID: " );
         Serial.println( ssid );
         wifi_status = WiFi.begin( ssid, pass );
         delay( 10000 );
@@ -126,7 +149,7 @@ void setup_wifi() {
 }
 
 void setup_mqtt() {
-    Serial.print( "Connecting to broker" );
+    Serial.print( "Connecting to broker: " );
     Serial.println( mqtt_server );
 
     mqtt_client.setId( sensor_name );
@@ -181,14 +204,14 @@ void send_temperature( float* temperature_f ) {
     char buf[23]; // {"temperature":-xxx}
 
     //stupid check for temperature digits
-    if ( *temperature_f > 0 ) {
+    if ( isnan( *temperature_f ) ) {
+        return;
+    }
+    else if ( *temperature_f > 0 ) {
         temperature = floor( *temperature_f * 100 + 0.5 ) / 100;
     }
     else {
         temperature = ceil( *temperature_f *100 - 0.5 ) / 100;
-    }
-    if ( temperature > 999.99 || temperature < -99.99 ) {
-        return;
     }
 
     snprintf( buf, sizeof( buf ), "{\"temperature\":%.2f}", temperature );
