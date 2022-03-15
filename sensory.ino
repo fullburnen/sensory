@@ -11,6 +11,9 @@
 #define REPORT_TEMPERATURE
 #endif
 
+#define REPORT_VOLTAGE
+#define VBAT_PIN A7
+
 #define LED_STATUS_PIN 13
 
 //Wifi globals
@@ -35,8 +38,13 @@ char mqtt_server[] = MQTT_SERVER;
 int mqtt_port = MQTT_PORT;
 char mqtt_username[] = MQTT_USERNAME;
 char mqtt_password[] = MQTT_PASSWORD;
-char mqtt_topic_config[] = MQTT_TOPIC_CONFIG;
-char mqtt_topic_temperature[] = MQTT_TOPIC_TEMPERATURE;
+#ifdef REPORT_TEMPERATURE
+char mqtt_topic_config_temperature[] = MQTT_TOPIC_CONFIG_TEMPERATURE;
+#endif
+#ifdef REPORT_VOLTAGE
+char mqtt_topic_config_voltage[] = MQTT_TOPIC_CONFIG_VOLTAGE;
+#endif
+char mqtt_topic_state[] = MQTT_TOPIC_STATE;
 char sensor_name[] = SENSOR_NAME;
 char sensor_name_nice[] = SENSOR_NAME_NICE;
 
@@ -87,6 +95,9 @@ void loop() {
 #ifdef REPORT_TEMPERATURE
     float temperature = NAN;
 #endif
+#ifdef REPORT_VOLTAGE
+    float voltage = NAN;
+#endif
 
     digitalWrite( LED_STATUS_PIN, HIGH );
     delay( 1000 );
@@ -115,30 +126,17 @@ void loop() {
     }
 #endif
 
+#ifdef REPORT_VOLTAGE
+    read_voltage( &voltage );
+    if ( !isnan( voltage ) ) {
+        send_voltage( &voltage );
+    }
+#endif
+
     digitalWrite( LED_STATUS_PIN, LOW );
 
     delay( REPORT_INTERVAL );
 }
-
-#ifdef REPORT_TEMPERATURE
-void read_temperature( float* temperature_f ) {
-    float temperature_c = NAN;
-    *temperature_f = NAN;
-#ifdef USE_BMP280
-    if ( sensor.takeForcedMeasurement() ) {
-        temperature_c = sensor.readTemperature();
-    }
-#elif defined( USE_SHT31 )
-    temperature_c = sensor.readTemperature();
-#endif
-    if ( !isnan( temperature_c ) ) {
-        *temperature_f = temperature_c * 9 / 5 + 32;
-    }
-    if ( isnan( *temperature_f ) ) {
-        Serial.println( "Unable to take measurement" );
-    }
-}
-#endif
 
 void setup_wifi() {
     while ( wifi_status != WL_CONNECTED ) {
@@ -186,12 +184,10 @@ bool mqtt_publish( MqttClient *client, char *topic, char *buf, bool retain = fal
     return ( ret == 1 );
 }
 
-void send_config() {
-    char buf[512];
-    snprintf( buf, sizeof( buf ), "{\"unique_id\":\"%s_temp\",\"state_topic\":\"homeassistant/sensor/%s/state\",\"name\":\"%s Temperature\",\"device_class\":\"temperature\",\"unit_of_measurement\":\"°F\",\"value_template\":\"{{ value_json.temperature }}\",\"device\":{\"name\":\"%s\",\"identifiers\":\"%s\"}}", sensor_name, sensor_name, sensor_name_nice, sensor_name_nice, sensor_name );
-    buf[sizeof( buf ) - 1] = '\0';
+void mqtt_publish_config( MqttClient *client, char *topic, char *buf ) {
+    bool ret = mqtt_publish( client, topic, buf, true, 0, false );
 
-    if ( !mqtt_publish( &mqtt_client, mqtt_topic_config, buf, true, 0, false ) ) {
+    if ( !ret ) {
         Serial.print( "Failed to publish config: " );
         Serial.println( buf );
     }
@@ -201,26 +197,51 @@ void send_config() {
     }
 }
 
+void send_config() {
+    char buf[512];
+
 #ifdef REPORT_TEMPERATURE
+    build_config_temperature( buf, sizeof( buf ) );
+    mqtt_publish_config( &mqtt_client, mqtt_topic_config_temperature, buf );
+#endif
+
+#ifdef REPORT_VOLTAGE
+    build_config_voltage( buf, sizeof( buf ) );
+    mqtt_publish_config( &mqtt_client, mqtt_topic_config_voltage, buf );
+#endif
+}
+
+void round_float( float* number, int decimals ) {
+    int factor = 10 ^ decimals;
+    if ( *number > 0 ) {
+        *number = floor( *number * factor + 0.5 ) / factor;
+    }
+    else {
+        *number = ceil( *number * factor - 0.5 ) / factor;
+    }
+}
+
+#ifdef REPORT_TEMPERATURE
+void build_config_temperature( char* buf, int buf_size ) {
+    snprintf( buf, buf_size, "{\"unique_id\":\"%s_temp\",\"state_topic\":\"homeassistant/sensor/%s/state\",\"name\":\"%s Temperature\",\"device_class\":\"temperature\",\"unit_of_measurement\":\"°F\",\"value_template\":\"{{ value_json.temperature }}\",\"device\":{\"name\":\"%s\",\"identifiers\":\"%s\"}}", sensor_name, sensor_name, sensor_name_nice, sensor_name_nice, sensor_name );
+    buf[buf_size - 1] = '\0';
+}
+
 void send_temperature( float* temperature_f ) {
     float temperature = 0.00;
-    char buf[23]; // {"temperature":-xxx}
+    char buf[24]; // {"temperature":-xxx.xx}
 
-    //stupid check for temperature digits
     if ( isnan( *temperature_f ) ) {
         return;
     }
-    else if ( *temperature_f > 0 ) {
-        temperature = floor( *temperature_f * 100 + 0.5 ) / 100;
-    }
-    else {
-        temperature = ceil( *temperature_f *100 - 0.5 ) / 100;
-    }
+
+    temperature = *temperature_f;
+    round_float( &temperature, 2 );
 
     snprintf( buf, sizeof( buf ), "{\"temperature\":%.2f}", temperature );
     buf[sizeof( buf ) - 1] = '\0';
 
-    if ( !mqtt_publish( &mqtt_client, mqtt_topic_temperature, buf, false, 0, false ) ) {
+    if ( !mqtt_publish( &mqtt_client, mqtt_topic_state, buf, false, 0, false ) ) {
         Serial.print( "Failed to publish temperature: " );
         Serial.println( buf );
     }
@@ -229,4 +250,60 @@ void send_temperature( float* temperature_f ) {
         Serial.println( buf );
     }
 }
+
+void read_temperature( float* temperature_f ) {
+    float temperature_c = NAN;
+    *temperature_f = NAN;
+#ifdef USE_BMP280
+    if ( sensor.takeForcedMeasurement() ) {
+        temperature_c = sensor.readTemperature();
+    }
+#elif defined( USE_SHT31 )
+    temperature_c = sensor.readTemperature();
 #endif
+    if ( !isnan( temperature_c ) ) {
+        *temperature_f = temperature_c * 9 / 5 + 32;
+    }
+    if ( isnan( *temperature_f ) ) {
+        Serial.println( "Unable to take measurement" );
+    }
+}
+#endif
+
+#ifdef REPORT_VOLTAGE
+void build_config_voltage( char* buf, int buf_size ) {
+    snprintf( buf, buf_size, "{\"unique_id\":\"%s_voltage\",\"state_topic\":\"homeassistant/sensor/%s/state\",\"name\":\"%s Voltage\",\"device_class\":\"voltage\",\"unit_of_measurement\":\"V\",\"value_template\":\"{{ value_json.voltage }}\",\"device\":{\"name\":\"%s\",\"identifiers\":\"%s\"}}", sensor_name, sensor_name, sensor_name_nice, sensor_name_nice, sensor_name );
+    buf[buf_size - 1] = '\0';
+}
+
+void send_voltage( float* voltage_v ) {
+    float voltage = NAN;
+    char buf[23]; // {"voltage":xx.xx}
+
+    if ( isnan( *voltage_v ) || *voltage_v >= 5 || *voltage_v <= 3 ) {
+        Serial.println( "Voltage out of range" );
+        return;
+    }
+
+    voltage = *voltage_v;
+    round_float( &voltage, 2 );
+
+    snprintf( buf, sizeof( buf ), "{\"voltage\":%.2f}", voltage );
+    buf[sizeof( buf ) - 1] = '\0';
+
+    if ( !mqtt_publish( &mqtt_client, mqtt_topic_state, buf, false, 0, false ) ) {
+        Serial.print( "Failed to publish voltage: " );
+        Serial.println( buf );
+    }
+    else {
+        Serial.print( "Published: " );
+        Serial.println( buf );
+    }
+}
+
+void read_voltage( float* voltage_v ) {
+    *voltage_v = analogRead( VBAT_PIN );
+    *voltage_v = *voltage_v * 2 * 3.3 / 1024;
+}
+#endif
+
