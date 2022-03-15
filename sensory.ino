@@ -1,5 +1,6 @@
 #include <ArduinoMqttClient.h>
 #include <WiFi101.h>
+#include <ArduinoJson.h>
 
 #include "user_config.h"
 
@@ -82,6 +83,7 @@ void setup() {
     }
     WiFi.lowPowerMode();
 
+    //Set LED pin to indicate activity
     pinMode( LED_STATUS_PIN, OUTPUT );
 
     setup_wifi();
@@ -98,6 +100,7 @@ void loop() {
 #ifdef REPORT_VOLTAGE
     float voltage = NAN;
 #endif
+    StaticJsonDocument<512> json_doc;
 
     digitalWrite( LED_STATUS_PIN, HIGH );
     delay( 1000 );
@@ -122,16 +125,22 @@ void loop() {
 #ifdef REPORT_TEMPERATURE
     read_temperature( &temperature );
     if ( !isnan( temperature ) ) {
-        send_temperature( &temperature );
+        round_float( &temperature, 2 );
+        json_doc["temperature"] = temperature;
     }
 #endif
 
 #ifdef REPORT_VOLTAGE
     read_voltage( &voltage );
     if ( !isnan( voltage ) ) {
-        send_voltage( &voltage );
+        round_float( &voltage, 2 );
+        json_doc["voltage"] = voltage;
     }
 #endif
+
+    if ( !json_doc.isNull() ) {
+        send_state( &json_doc );
+    }
 
     digitalWrite( LED_STATUS_PIN, LOW );
 
@@ -211,6 +220,22 @@ void send_config() {
 #endif
 }
 
+void send_state( JsonDocument* document ) {
+    int buf_size = 512;
+    char buf[buf_size];
+
+    serializeJson( *document, buf, buf_size );
+
+    if ( !mqtt_publish( &mqtt_client, mqtt_topic_state, buf, false, 0, false ) ) {
+        Serial.print( "Failed to publish state: " );
+        Serial.println( buf );
+    }
+    else {
+        Serial.print( "Published: " );
+        Serial.println( buf );
+    }
+}
+
 void round_float( float* number, int decimals ) {
     int factor = 10 ^ decimals;
     if ( *number > 0 ) {
@@ -225,30 +250,6 @@ void round_float( float* number, int decimals ) {
 void build_config_temperature( char* buf, int buf_size ) {
     snprintf( buf, buf_size, "{\"unique_id\":\"%s_temp\",\"state_topic\":\"homeassistant/sensor/%s/state\",\"name\":\"%s Temperature\",\"device_class\":\"temperature\",\"unit_of_measurement\":\"°F\",\"value_template\":\"{{ value_json.temperature }}\",\"device\":{\"name\":\"%s\",\"identifiers\":\"%s\"}}", sensor_name, sensor_name, sensor_name_nice, sensor_name_nice, sensor_name );
     buf[buf_size - 1] = '\0';
-}
-
-void send_temperature( float* temperature_f ) {
-    float temperature = 0.00;
-    char buf[24]; // {"temperature":-xxx.xx}
-
-    if ( isnan( *temperature_f ) ) {
-        return;
-    }
-
-    temperature = *temperature_f;
-    round_float( &temperature, 2 );
-
-    snprintf( buf, sizeof( buf ), "{\"temperature\":%.2f}", temperature );
-    buf[sizeof( buf ) - 1] = '\0';
-
-    if ( !mqtt_publish( &mqtt_client, mqtt_topic_state, buf, false, 0, false ) ) {
-        Serial.print( "Failed to publish temperature: " );
-        Serial.println( buf );
-    }
-    else {
-        Serial.print( "Published: " );
-        Serial.println( buf );
-    }
 }
 
 void read_temperature( float* temperature_f ) {
@@ -274,31 +275,6 @@ void read_temperature( float* temperature_f ) {
 void build_config_voltage( char* buf, int buf_size ) {
     snprintf( buf, buf_size, "{\"unique_id\":\"%s_voltage\",\"state_topic\":\"homeassistant/sensor/%s/state\",\"name\":\"%s Voltage\",\"device_class\":\"voltage\",\"unit_of_measurement\":\"V\",\"value_template\":\"{{ value_json.voltage }}\",\"device\":{\"name\":\"%s\",\"identifiers\":\"%s\"}}", sensor_name, sensor_name, sensor_name_nice, sensor_name_nice, sensor_name );
     buf[buf_size - 1] = '\0';
-}
-
-void send_voltage( float* voltage_v ) {
-    float voltage = NAN;
-    char buf[23]; // {"voltage":xx.xx}
-
-    if ( isnan( *voltage_v ) || *voltage_v >= 5 || *voltage_v <= 3 ) {
-        Serial.println( "Voltage out of range" );
-        return;
-    }
-
-    voltage = *voltage_v;
-    round_float( &voltage, 2 );
-
-    snprintf( buf, sizeof( buf ), "{\"voltage\":%.2f}", voltage );
-    buf[sizeof( buf ) - 1] = '\0';
-
-    if ( !mqtt_publish( &mqtt_client, mqtt_topic_state, buf, false, 0, false ) ) {
-        Serial.print( "Failed to publish voltage: " );
-        Serial.println( buf );
-    }
-    else {
-        Serial.print( "Published: " );
-        Serial.println( buf );
-    }
 }
 
 void read_voltage( float* voltage_v ) {
