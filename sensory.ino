@@ -11,6 +11,8 @@
 #define REPORT_TEMPERATURE
 #endif
 
+#define LED_STATUS_PIN 13
+
 //Wifi globals
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
@@ -70,8 +72,9 @@ void setup() {
             Serial.println( "No wifi detected" );
         }
     }
+    WiFi.lowPowerMode();
 
-    pinMode( 13, OUTPUT );
+    pinMode( LED_STATUS_PIN, OUTPUT );
 
     setup_wifi();
     setup_mqtt();
@@ -85,7 +88,7 @@ void loop() {
     float temperature = NAN;
 #endif
 
-    digitalWrite( 13, HIGH );
+    digitalWrite( LED_STATUS_PIN, HIGH );
     delay( 1000 );
 
     if ( !Serial ) {
@@ -112,7 +115,7 @@ void loop() {
     }
 #endif
 
-    digitalWrite( 13, LOW );
+    digitalWrite( LED_STATUS_PIN, LOW );
 
     delay( REPORT_INTERVAL );
 }
