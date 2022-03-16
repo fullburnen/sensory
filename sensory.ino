@@ -17,6 +17,10 @@
 
 #define LED_STATUS_PIN 13
 
+//=============================================================================
+//Globals
+//=============================================================================
+
 //Wifi globals
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
@@ -52,6 +56,10 @@ char sensor_name_nice[] = SENSOR_NAME_NICE;
 WiFiClient wifi_client;
 MqttClient mqtt_client( wifi_client );
 
+//=============================================================================
+//Main block
+//=============================================================================
+
 void setup() {
     setup_serial( false );
     Serial.println( "Booting" );
@@ -81,7 +89,6 @@ void setup() {
             Serial.println( "No wifi detected" );
         }
     }
-    WiFi.lowPowerMode();
 
     //Set LED pin to indicate activity
     pinMode( LED_STATUS_PIN, OUTPUT );
@@ -147,6 +154,10 @@ void loop() {
     delay( REPORT_INTERVAL );
 }
 
+//=============================================================================
+//Setup functions
+//=============================================================================
+
 void setup_wifi() {
     while ( wifi_status != WL_CONNECTED ) {
         Serial.print( "Connecting to SSID: " );
@@ -181,6 +192,10 @@ void setup_serial( bool blocking ) {
         }
     }
 }
+
+//=============================================================================
+//MQTT functions
+//=============================================================================
 
 bool mqtt_publish( MqttClient *client, char *topic, char *buf, bool retain = false, uint8_t qos = 0, bool dup = false ) {
     int ret = 0;
@@ -236,6 +251,10 @@ void send_state( JsonDocument* document ) {
     }
 }
 
+//=============================================================================
+//Utility functions
+//=============================================================================
+
 void round_float( float* number, int decimals ) {
     int factor = 10 ^ decimals;
     if ( *number > 0 ) {
@@ -245,6 +264,10 @@ void round_float( float* number, int decimals ) {
         *number = ceil( *number * factor - 0.5 ) / factor;
     }
 }
+
+//=============================================================================
+//Sensor functions
+//=============================================================================
 
 #ifdef REPORT_TEMPERATURE
 void build_config_temperature( char* buf, int buf_size ) {
