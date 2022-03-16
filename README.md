@@ -15,6 +15,7 @@ Arduino libraries required:
   * Adafruit SAMD
   * WiFi101
   * ArduinoMqttClient
+  * ArduinoJson
 * Sensor:
   * Adafruit BMP280
   * Adafruit SHT31
