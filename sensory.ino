@@ -102,10 +102,10 @@ void setup() {
 
 void loop() {
 #ifdef REPORT_TEMPERATURE
-    float temperature = NAN;
+    double temperature = NAN;
 #endif
 #ifdef REPORT_VOLTAGE
-    float voltage = NAN;
+    double voltage = NAN;
 #endif
     StaticJsonDocument<512> json_doc;
 
@@ -132,7 +132,7 @@ void loop() {
 #ifdef REPORT_TEMPERATURE
     read_temperature( &temperature );
     if ( !isnan( temperature ) ) {
-        round_float( &temperature, 2 );
+        temperature = round_double( temperature, 2 );
         json_doc["temperature"] = temperature;
     }
 #endif
@@ -140,7 +140,7 @@ void loop() {
 #ifdef REPORT_VOLTAGE
     read_voltage( &voltage );
     if ( !isnan( voltage ) ) {
-        round_float( &voltage, 2 );
+        voltage = round_double( voltage, 2 );
         json_doc["voltage"] = voltage;
     }
 #endif
@@ -255,14 +255,9 @@ void send_state( JsonDocument* document ) {
 //Utility functions
 //=============================================================================
 
-void round_float( float* number, int decimals ) {
-    int factor = 10 ^ decimals;
-    if ( *number > 0 ) {
-        *number = floor( *number * factor + 0.5 ) / factor;
-    }
-    else {
-        *number = ceil( *number * factor - 0.5 ) / factor;
-    }
+double round_double( double number, int decimals ) {
+    double factor = pow( 10, decimals );
+    return roundf( number * factor ) / factor;
 }
 
 //=============================================================================
@@ -275,12 +270,12 @@ void build_config_temperature( char* buf, int buf_size ) {
     buf[buf_size - 1] = '\0';
 }
 
-void read_temperature( float* temperature_f ) {
-    float temperature_c = NAN;
+void read_temperature( double* temperature_f ) {
+    double temperature_c = NAN;
     *temperature_f = NAN;
 #ifdef USE_BMP280
     if ( sensor.takeForcedMeasurement() ) {
-        temperature_c = sensor.readTemperature();
+        temperature_c = ( double )sensor.readTemperature();
     }
 #elif defined( USE_SHT31 )
     temperature_c = sensor.readTemperature();
@@ -300,8 +295,8 @@ void build_config_voltage( char* buf, int buf_size ) {
     buf[buf_size - 1] = '\0';
 }
 
-void read_voltage( float* voltage_v ) {
-    *voltage_v = analogRead( VBAT_PIN );
+void read_voltage( double* voltage_v ) {
+    *voltage_v = ( double )analogRead( VBAT_PIN );
     *voltage_v = *voltage_v * 2 * 3.3 / 1024;
 }
 #endif
