@@ -61,6 +61,7 @@ MqttClient mqtt_client( wifi_client );
 //=============================================================================
 
 void setup() {
+    delay( 3000 );
     setup_serial( false );
     Serial.println( "Booting" );
 
@@ -90,6 +91,14 @@ void setup() {
         }
     }
 
+    byte mac_addr[6];
+    WiFi.macAddress( mac_addr );
+    char mac_addr_str[18];
+    snprintf( mac_addr_str, sizeof( mac_addr_str ), "%x:%x:%x:%x:%x:%x", mac_addr[5], mac_addr[4], mac_addr[3], mac_addr[2], mac_addr[1], mac_addr[0] );
+    mac_addr_str[sizeof( mac_addr_str ) - 1] = '\0';
+    Serial.print( "Wifi MAC: " );
+    Serial.println( mac_addr_str );
+
     //Set LED pin to indicate activity
     pinMode( LED_STATUS_PIN, OUTPUT );
 
@@ -118,10 +127,10 @@ void loop() {
 
     wifi_status = WiFi.status();
     if ( wifi_status != WL_CONNECTED ) {
-        Serial.print( "Connection lost" );
+        Serial.println( "Connection lost" );
         mqtt_client.stop();
         WiFi.end();
-        wifi_status = WiFi.status();
+        wifi_status = WL_IDLE_STATUS;
         setup_wifi();
     }
     if ( !mqtt_client.connected() ) {
@@ -167,6 +176,13 @@ void setup_wifi() {
     }
     Serial.println( "Connected" );
     WiFi.maxLowPowerMode();
+
+    IPAddress addr = WiFi.localIP();
+    char buf[16];
+    IPAddress_to_cstr( addr, buf, sizeof( buf ) );
+    Serial.print( "Wifi IP: " );
+    Serial.println( buf );
+
 }
 
 void setup_mqtt() {
@@ -258,6 +274,19 @@ void send_state( JsonDocument* document ) {
 double round_double( double number, int decimals ) {
     double factor = pow( 10, decimals );
     return roundf( number * factor ) / factor;
+}
+
+bool IPAddress_to_cstr( IPAddress addr, char* buf, int buf_size ) {
+    if ( buf_size < 16 ) {
+        return false;
+    }
+
+    uint8_t octet[4];
+    for ( int i = 0; i < 4; i++ ) {
+        octet[i] = addr >> ( i * 8 );
+    }
+    snprintf( buf, buf_size, "%d.%d.%d.%d", octet[0], octet[1], octet[2], octet[3] );
+    return true;
 }
 
 //=============================================================================
