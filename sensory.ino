@@ -149,7 +149,7 @@ void loop() {
 #ifdef REPORT_VOLTAGE
     read_voltage( &voltage );
     if ( !isnan( voltage ) ) {
-        voltage = round_double( voltage, 2 );
+        voltage = round_double( voltage, 1 );
         json_doc["voltage"] = voltage;
     }
 #endif
@@ -273,7 +273,7 @@ void send_state( JsonDocument* document ) {
 
 double round_double( double number, int decimals ) {
     double factor = pow( 10, decimals );
-    return roundf( number * factor ) / factor;
+    return round( number * factor ) / factor;
 }
 
 bool IPAddress_to_cstr( IPAddress addr, char* buf, int buf_size ) {
