@@ -1,8 +1,15 @@
+#include "user_config.h"
+
 #include <ArduinoMqttClient.h>
 #include <WiFi101.h>
 #include <ArduinoJson.h>
 
-#include "user_config.h"
+#define USE_RTC
+#ifdef USE_RTC
+#include <RTCZero.h>
+#endif
+
+#define REPORT_INTERVAL_MS REPORT_INTERVAL_S * 1000
 
 #ifdef USE_BMP280
 #include <Adafruit_BMP280.h>
@@ -20,6 +27,10 @@
 //=============================================================================
 //Globals
 //=============================================================================
+
+#ifdef USE_RTC
+RTCZero rtc;
+#endif
 
 //Wifi globals
 char ssid[] = SECRET_SSID;
@@ -102,6 +113,11 @@ void setup() {
     //Set LED pin to indicate activity
     pinMode( LED_STATUS_PIN, OUTPUT );
 
+#ifdef USE_RTC
+    rtc.begin();
+    rtc.setEpoch( 0 );
+#endif
+
     setup_wifi();
     setup_mqtt();
     send_config();
@@ -120,6 +136,10 @@ void loop() {
 
     digitalWrite( LED_STATUS_PIN, HIGH );
     delay( 1000 );
+
+#ifdef USE_RTC
+    rtc.disableAlarm();
+#endif
 
     if ( !Serial ) {
         setup_serial( false );
@@ -160,7 +180,13 @@ void loop() {
 
     digitalWrite( LED_STATUS_PIN, LOW );
 
-    delay( REPORT_INTERVAL );
+#ifdef USE_RTC
+    rtc.setAlarmEpoch( rtc.getEpoch() + REPORT_INTERVAL_S );
+    rtc.enableAlarm( rtc.MATCH_YYMMDDHHMMSS );
+    rtc.standbyMode();
+#else
+    delay( REPORT_INTERVAL_MS );
+#endif
 }
 
 //=============================================================================

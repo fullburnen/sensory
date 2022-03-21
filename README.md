@@ -16,6 +16,7 @@ Arduino libraries required:
   * WiFi101
   * ArduinoMqttClient
   * ArduinoJson
+  * RTCZero
 * Sensor:
   * Adafruit BMP280
   * Adafruit SHT31
