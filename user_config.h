@@ -20,5 +20,5 @@
 #define USE_SHT31
 //#define USE_ALT_ADDRESS
 
-//Read sensors and publish to server every x milliseconds
-#define REPORT_INTERVAL 60000
+//Read sensors and publish to server every x seconds
+#define REPORT_INTERVAL_S 60
