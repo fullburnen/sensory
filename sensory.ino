@@ -175,7 +175,7 @@ void loop() {
 #endif
 
     if ( !json_doc.isNull() ) {
-        send_state( &json_doc );
+        send_json( mqtt_topic_state, &json_doc );
     }
 
     digitalWrite( LED_STATUS_PIN, LOW );
@@ -264,26 +264,33 @@ void mqtt_publish_config( MqttClient *client, char *topic, char *buf ) {
 }
 
 void send_config() {
-    char buf[512];
+    StaticJsonDocument<512> json_doc;
 
 #ifdef REPORT_TEMPERATURE
-    build_config_temperature( buf, sizeof( buf ) );
-    mqtt_publish_config( &mqtt_client, mqtt_topic_config_temperature, buf );
+    build_config_temperature( &json_doc );
+    send_json( mqtt_topic_config_temperature, &json_doc );
+    json_doc.clear();
 #endif
 
 #ifdef REPORT_VOLTAGE
-    build_config_voltage( buf, sizeof( buf ) );
-    mqtt_publish_config( &mqtt_client, mqtt_topic_config_voltage, buf );
+    build_config_voltage( &json_doc );
+    send_json( mqtt_topic_config_voltage, &json_doc );
+    json_doc.clear();
 #endif
 }
 
-void send_state( JsonDocument* document ) {
+void send_json( char *topic, JsonDocument *document ) {
     int buf_size = 512;
     char buf[buf_size];
 
+    if ( topic == NULL || strlen( topic ) == 0 || document == NULL ) {
+        Serial.println( "Failed to publish: null" );
+        return;
+    }
+
     serializeJson( *document, buf, buf_size );
 
-    if ( !mqtt_publish( &mqtt_client, mqtt_topic_state, buf, false, 0, false ) ) {
+    if ( !mqtt_publish( &mqtt_client, topic, buf, false, 0, false ) ) {
         Serial.print( "Failed to publish state: " );
         Serial.println( buf );
     }
@@ -320,9 +327,15 @@ bool IPAddress_to_cstr( IPAddress addr, char* buf, int buf_size ) {
 //=============================================================================
 
 #ifdef REPORT_TEMPERATURE
-void build_config_temperature( char* buf, int buf_size ) {
-    snprintf( buf, buf_size, "{\"unique_id\":\"%s_temp\",\"state_topic\":\"homeassistant/sensor/%s/state\",\"name\":\"%s Temperature\",\"device_class\":\"temperature\",\"unit_of_measurement\":\"°F\",\"value_template\":\"{{ value_json.temperature }}\",\"device\":{\"name\":\"%s\",\"identifiers\":\"%s\"}}", sensor_name, sensor_name, sensor_name_nice, sensor_name_nice, sensor_name );
-    buf[buf_size - 1] = '\0';
+void build_config_temperature( JsonDocument *document ) {
+    (*document)["unique_id"] = String( sensor_name ) + "_temp";
+    (*document)["state_topic"] = "homeassistant/sensor/" + String( sensor_name ) + "/state";
+    (*document)["name"] = String( sensor_name_nice ) + " Temperature";
+    (*document)["device_class"] = "temperature";
+    (*document)["unit_of_measurement"] = "°F";
+    (*document)["value_template"] = "{{ value_json.temperature }}";
+    (*document)["device"]["name"] = sensor_name_nice;
+    (*document)["device"]["identifiers"] = sensor_name;
 }
 
 void read_temperature( double* temperature_f ) {
@@ -345,9 +358,15 @@ void read_temperature( double* temperature_f ) {
 #endif
 
 #ifdef REPORT_VOLTAGE
-void build_config_voltage( char* buf, int buf_size ) {
-    snprintf( buf, buf_size, "{\"unique_id\":\"%s_voltage\",\"state_topic\":\"homeassistant/sensor/%s/state\",\"name\":\"%s Voltage\",\"device_class\":\"voltage\",\"unit_of_measurement\":\"V\",\"value_template\":\"{{ value_json.voltage }}\",\"device\":{\"name\":\"%s\",\"identifiers\":\"%s\"}}", sensor_name, sensor_name, sensor_name_nice, sensor_name_nice, sensor_name );
-    buf[buf_size - 1] = '\0';
+void build_config_voltage( JsonDocument *document ) {
+    (*document)["unique_id"] = String( sensor_name ) + "_voltage";
+    (*document)["state_topic"] = "homeassistant/sensor/" + String( sensor_name ) + "/state";
+    (*document)["name"] = String( sensor_name_nice ) + " Voltage";
+    (*document)["device_class"] = "temperature";
+    (*document)["unit_of_measurement"] = "V";
+    (*document)["value_template"] = "{{ value_json.voltage }}";
+    (*document)["device"]["name"] = sensor_name_nice;
+    (*document)["device"]["identifiers"] = sensor_name;
 }
 
 void read_voltage( double* voltage_v ) {
