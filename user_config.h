@@ -21,4 +21,4 @@
 //#define USE_ALT_ADDRESS
 
 //Read sensors and publish to server every x seconds
-#define REPORT_INTERVAL_S 60
+#define REPORT_INTERVAL_S 300
