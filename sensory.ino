@@ -362,7 +362,7 @@ void build_config_voltage( JsonDocument *document ) {
     (*document)["unique_id"] = String( sensor_name ) + "_voltage";
     (*document)["state_topic"] = "homeassistant/sensor/" + String( sensor_name ) + "/state";
     (*document)["name"] = String( sensor_name_nice ) + " Voltage";
-    (*document)["device_class"] = "temperature";
+    (*document)["device_class"] = "voltage";
     (*document)["unit_of_measurement"] = "V";
     (*document)["value_template"] = "{{ value_json.voltage }}";
     (*document)["device"]["name"] = sensor_name_nice;
