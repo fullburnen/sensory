@@ -49,6 +49,8 @@ bool alt_address = false;
 alt_address = true;
 #endif
 
+bool use_metric = true;
+
 //MQTT globals
 char mqtt_server[] = MQTT_SERVER;
 int mqtt_port = MQTT_PORT;
@@ -75,6 +77,12 @@ void setup() {
     delay( 3000 );
     setup_serial( false );
     Serial.println( "Booting" );
+
+#ifdef USE_METRIC
+    use_metric = true;
+#else
+    use_metric = false;
+#endif
 
 #ifdef USE_BMP280
     if ( !sensor.begin( alt_address ? BMP280_ADDRESS_ALT : BMP280_ADDRESS ) ) {
@@ -332,15 +340,20 @@ void build_config_temperature( JsonDocument *document ) {
     (*document)["state_topic"] = "homeassistant/sensor/" + String( sensor_name ) + "/state";
     (*document)["name"] = String( sensor_name_nice ) + " Temperature";
     (*document)["device_class"] = "temperature";
-    (*document)["unit_of_measurement"] = "°F";
+    if ( use_metric ) {
+        (*document)["unit_of_measurement"] = "°C";
+    }
+    else {
+        (*document)["unit_of_measurement"] = "°F";
+    }
     (*document)["value_template"] = "{{ value_json.temperature }}";
     (*document)["device"]["name"] = sensor_name_nice;
     (*document)["device"]["identifiers"] = sensor_name;
 }
 
-void read_temperature( double* temperature_f ) {
+void read_temperature( double* temperature ) {
     double temperature_c = NAN;
-    *temperature_f = NAN;
+    *temperature = NAN;
 #ifdef USE_BMP280
     if ( sensor.takeForcedMeasurement() ) {
         temperature_c = ( double )sensor.readTemperature();
@@ -349,9 +362,14 @@ void read_temperature( double* temperature_f ) {
     temperature_c = sensor.readTemperature();
 #endif
     if ( !isnan( temperature_c ) ) {
-        *temperature_f = temperature_c * 9 / 5 + 32;
+        if ( use_metric ) {
+            *temperature = temperature_c;
+        }
+        else {
+            *temperature = temperature_c * 9 / 5 + 32;
+        }
     }
-    if ( isnan( *temperature_f ) ) {
+    if ( isnan( *temperature ) ) {
         Serial.println( "Unable to take measurement" );
     }
 }

@@ -15,10 +15,12 @@
 #define MQTT_TOPIC_CONFIG_VOLTAGE "homeassistant/sensor/" SENSOR_NAME "_V/config"
 #define MQTT_TOPIC_STATE "homeassistant/sensor/" SENSOR_NAME "/state"
 
-//Sensor information
+//Sensor hardware
 //#define USE_BMP280
 #define USE_SHT31
 //#define USE_ALT_ADDRESS
 
 //Read sensors and publish to server every x seconds
 #define REPORT_INTERVAL_S 300
+
+#define USE_METRIC
