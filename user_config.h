@@ -13,6 +13,7 @@
 #define MQTT_PASSWORD SENSOR_NAME
 #define MQTT_TOPIC_CONFIG_TEMPERATURE "homeassistant/sensor/" SENSOR_NAME "_T/config"
 #define MQTT_TOPIC_CONFIG_VOLTAGE "homeassistant/sensor/" SENSOR_NAME "_V/config"
+#define MQTT_TOPIC_CONFIG_HUMIDITY "homeassistant/sensor/" SENSOR_NAME "_H/config"
 #define MQTT_TOPIC_STATE "homeassistant/sensor/" SENSOR_NAME "/state"
 
 //Sensor hardware

@@ -17,6 +17,7 @@
 #elif defined( USE_SHT31 )
 #include <Adafruit_SHT31.h>
 #define REPORT_TEMPERATURE
+#define REPORT_HUMIDITY
 #endif
 
 #define REPORT_VOLTAGE
@@ -61,6 +62,9 @@ char mqtt_topic_config_temperature[] = MQTT_TOPIC_CONFIG_TEMPERATURE;
 #endif
 #ifdef REPORT_VOLTAGE
 char mqtt_topic_config_voltage[] = MQTT_TOPIC_CONFIG_VOLTAGE;
+#endif
+#ifdef REPORT_HUMIDITY
+char mqtt_topic_config_humidity[] = MQTT_TOPIC_CONFIG_HUMIDITY;
 #endif
 char mqtt_topic_state[] = MQTT_TOPIC_STATE;
 char sensor_name[] = SENSOR_NAME;
@@ -140,6 +144,9 @@ void loop() {
 #ifdef REPORT_VOLTAGE
     double voltage = NAN;
 #endif
+#ifdef REPORT_HUMIDITY
+    double humidity = NAN;
+#endif
     StaticJsonDocument<512> json_doc;
 
     digitalWrite( LED_STATUS_PIN, HIGH );
@@ -179,6 +186,14 @@ void loop() {
     if ( !isnan( voltage ) ) {
         voltage = round_double( voltage, 1 );
         json_doc["voltage"] = voltage;
+    }
+#endif
+
+#ifdef REPORT_HUMIDITY
+    read_humidity( &humidity );
+    if ( !isnan( humidity ) ) {
+        humidity = round_double( humidity, 2 );
+        json_doc["humidity"] = humidity;
     }
 #endif
 
@@ -285,6 +300,12 @@ void send_config() {
     send_json( mqtt_topic_config_voltage, &json_doc );
     json_doc.clear();
 #endif
+
+#ifdef REPORT_HUMIDITY
+    build_config_humidity( &json_doc );
+    send_json( mqtt_topic_config_humidity, &json_doc );
+    json_doc.clear();
+#endif
 }
 
 void send_json( char *topic, JsonDocument *document ) {
@@ -370,7 +391,7 @@ void read_temperature( double* temperature ) {
         }
     }
     if ( isnan( *temperature ) ) {
-        Serial.println( "Unable to take measurement" );
+        Serial.println( "Unable to take temperature measurement" );
     }
 }
 #endif
@@ -390,6 +411,29 @@ void build_config_voltage( JsonDocument *document ) {
 void read_voltage( double* voltage_v ) {
     *voltage_v = ( double )analogRead( VBAT_PIN );
     *voltage_v = *voltage_v * 2 * 3.3 / 1024;
+}
+#endif
+
+#ifdef REPORT_HUMIDITY
+void build_config_humidity( JsonDocument *document ) {
+    (*document)["unique_id"] = String( sensor_name ) + "_humidity";
+    (*document)["state_topic"] = "homeassistant/sensor/" + String( sensor_name ) + "/state";
+    (*document)["name"] = String( sensor_name_nice ) + " Humidity";
+    (*document)["device_class"] = "humidity";
+    (*document)["unit_of_measurement"] = "%";
+    (*document)["value_template"] = "{{ value_json.humidity }}";
+    (*document)["device"]["name"] = sensor_name_nice;
+    (*document)["device"]["identifiers"] = sensor_name;
+}
+
+void read_humidity( double* humidity ) {
+    *humidity = NAN;
+#ifdef USE_SHT31
+    *humidity = sensor.readTemperature();
+#endif
+    if ( isnan( *humidity ) ) {
+        Serial.println( "Unable to take humidity measurement" );
+    }
 }
 #endif
 

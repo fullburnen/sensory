@@ -24,3 +24,4 @@ Arduino libraries required:
 Sensor data supported:
 * Temperature
 * Voltage
+* Humidity
