@@ -13,17 +13,30 @@
 
 #ifdef USE_BMP280
 #include <Adafruit_BMP280.h>
-#define REPORT_TEMPERATURE
+#undef REPORT_HUMIDITY
 #elif defined( USE_SHT31 )
 #include <Adafruit_SHT31.h>
-#define REPORT_TEMPERATURE
-#define REPORT_HUMIDITY
 #endif
 
-#define REPORT_VOLTAGE
-#define VBAT_PIN A7
+#ifdef REPORT_VOLTAGE
+#ifndef VOLTAGE_PIN
+#define VOLTAGE_PIN A7
+#endif
+#endif
 
 #define LED_STATUS_PIN 13
+
+#ifdef REPORT_TEMPERATURE
+#define MQTT_TOPIC_CONFIG_TEMPERATURE "homeassistant/sensor/" SENSOR_NAME "_T/config"
+#endif
+#ifdef REPORT_VOLTAGE
+#define MQTT_TOPIC_CONFIG_VOLTAGE "homeassistant/sensor/" SENSOR_NAME "_V/config"
+#endif
+#ifdef REPORT_HUMIDITY
+#define MQTT_TOPIC_CONFIG_HUMIDITY "homeassistant/sensor/" SENSOR_NAME "_H/config"
+#endif
+
+#define MQTT_TOPIC_STATE "homeassistant/sensor/" SENSOR_NAME "/state"
 
 //=============================================================================
 //Globals
@@ -409,7 +422,7 @@ void build_config_voltage( JsonDocument *document ) {
 }
 
 void read_voltage( double* voltage_v ) {
-    *voltage_v = ( double )analogRead( VBAT_PIN );
+    *voltage_v = ( double )analogRead( VOLTAGE_PIN );
     *voltage_v = *voltage_v * 2 * 3.3 / 1024;
 }
 #endif
