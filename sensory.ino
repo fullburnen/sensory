@@ -442,7 +442,7 @@ void build_config_humidity( JsonDocument *document ) {
 void read_humidity( double* humidity ) {
     *humidity = NAN;
 #ifdef USE_SHT31
-    *humidity = sensor.readTemperature();
+    *humidity = sensor.readHumidity();
 #endif
     if ( isnan( *humidity ) ) {
         Serial.println( "Unable to take humidity measurement" );
