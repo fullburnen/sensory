@@ -16,6 +16,7 @@
 #undef REPORT_HUMIDITY
 #elif defined( USE_SHT31 )
 #include <Adafruit_SHT31.h>
+#undef REPORT_PRESSURE
 #endif
 
 #ifdef REPORT_VOLTAGE
@@ -34,6 +35,9 @@
 #endif
 #ifdef REPORT_HUMIDITY
 #define MQTT_TOPIC_CONFIG_HUMIDITY "homeassistant/sensor/" SENSOR_NAME "_H/config"
+#endif
+#ifdef REPORT_PRESSURE
+#define MQTT_TOPIC_CONFIG_PRESSURE "homeassistant/sensor/" SENSOR_NAME "_P/config"
 #endif
 
 #define MQTT_TOPIC_STATE "homeassistant/sensor/" SENSOR_NAME "/state"
@@ -78,6 +82,9 @@ char mqtt_topic_config_voltage[] = MQTT_TOPIC_CONFIG_VOLTAGE;
 #endif
 #ifdef REPORT_HUMIDITY
 char mqtt_topic_config_humidity[] = MQTT_TOPIC_CONFIG_HUMIDITY;
+#endif
+#ifdef REPORT_PRESSURE
+char mqtt_topic_config_pressure[] = MQTT_TOPIC_CONFIG_PRESSURE;
 #endif
 char mqtt_topic_state[] = MQTT_TOPIC_STATE;
 char sensor_name[] = SENSOR_NAME;
@@ -160,6 +167,9 @@ void loop() {
 #ifdef REPORT_HUMIDITY
     double humidity = NAN;
 #endif
+#ifdef REPORT_PRESSURE
+    double pressure = NAN;
+#endif
     StaticJsonDocument<512> json_doc;
 
     digitalWrite( LED_STATUS_PIN, HIGH );
@@ -207,6 +217,14 @@ void loop() {
     if ( !isnan( humidity ) ) {
         humidity = round_double( humidity, 2 );
         json_doc["humidity"] = humidity;
+    }
+#endif
+
+#ifdef REPORT_PRESSURE
+    read_pressure( &pressure );
+    if ( !isnan( pressure ) ) {
+        pressure = round_double( pressure, 2 );
+        json_doc["pressure"] = pressure;
     }
 #endif
 
@@ -317,6 +335,12 @@ void send_config() {
 #ifdef REPORT_HUMIDITY
     build_config_humidity( &json_doc );
     send_json( mqtt_topic_config_humidity, &json_doc );
+    json_doc.clear();
+#endif
+
+#ifdef REPORT_PRESSURE
+    build_config_pressure( &json_doc );
+    send_json( mqtt_topic_config_pressure, &json_doc );
     json_doc.clear();
 #endif
 }
@@ -450,3 +474,25 @@ void read_humidity( double* humidity ) {
 }
 #endif
 
+#ifdef REPORT_PRESSURE
+void build_config_pressure( JsonDocument *document ) {
+    (*document)["unique_id"] = String( sensor_name ) + "_pressure";
+    (*document)["state_topic"] = "homeassistant/sensor/" + String( sensor_name ) + "/state";
+    (*document)["name"] = String( sensor_name_nice ) + " Pressure";
+    (*document)["device_class"] = "pressure";
+    (*document)["unit_of_measurement"] = "Pa";
+    (*document)["value_template"] = "{{ value_json.pressure }}";
+    (*document)["device"]["name"] = sensor_name_nice;
+    (*document)["device"]["identifiers"] = sensor_name;
+}
+
+void read_pressure( double* pressure ) {
+    *pressure = NAN;
+#ifdef USE_BMP280
+    *pressure = sensor.readPressure();
+#endif
+    if ( isnan( *pressure ) ) {
+        Serial.println( "Unable to take pressure measurement" );
+    }
+}
+#endif

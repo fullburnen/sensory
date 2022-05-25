@@ -25,3 +25,4 @@ Sensor data supported:
 * Temperature
 * Voltage
 * Humidity
+* Pressure
