@@ -4,7 +4,7 @@
 #include <WiFi101.h>
 #include <ArduinoJson.h>
 
-#define USE_RTC
+//#define USE_RTC
 #ifdef USE_RTC
 #include <RTCZero.h>
 #endif
