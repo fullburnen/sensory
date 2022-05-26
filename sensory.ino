@@ -271,6 +271,7 @@ void setup_mqtt() {
 
     mqtt_client.setId( sensor_name );
     mqtt_client.setUsernamePassword( mqtt_username, mqtt_password );
+    mqtt_client.setKeepAliveInterval( 600 ); //Default to 10 minutes or double the default report interval
 
     while ( !mqtt_client.connect( mqtt_server, mqtt_port ) ) {
         Serial.print( "Error: " );
