@@ -229,7 +229,7 @@ void loop() {
 #endif
 
     if ( !json_doc.isNull() ) {
-        send_json( mqtt_topic_state, &json_doc );
+        send_json( mqtt_topic_state, &json_doc, false );
     }
 
     digitalWrite( LED_STATUS_PIN, LOW );
@@ -323,30 +323,30 @@ void send_config() {
 
 #ifdef REPORT_TEMPERATURE
     build_config_temperature( &json_doc );
-    send_json( mqtt_topic_config_temperature, &json_doc );
+    send_json( mqtt_topic_config_temperature, &json_doc, true );
     json_doc.clear();
 #endif
 
 #ifdef REPORT_VOLTAGE
     build_config_voltage( &json_doc );
-    send_json( mqtt_topic_config_voltage, &json_doc );
+    send_json( mqtt_topic_config_voltage, &json_doc, true );
     json_doc.clear();
 #endif
 
 #ifdef REPORT_HUMIDITY
     build_config_humidity( &json_doc );
-    send_json( mqtt_topic_config_humidity, &json_doc );
+    send_json( mqtt_topic_config_humidity, &json_doc, true );
     json_doc.clear();
 #endif
 
 #ifdef REPORT_PRESSURE
     build_config_pressure( &json_doc );
-    send_json( mqtt_topic_config_pressure, &json_doc );
+    send_json( mqtt_topic_config_pressure, &json_doc, true );
     json_doc.clear();
 #endif
 }
 
-void send_json( char *topic, JsonDocument *document ) {
+void send_json( char *topic, JsonDocument *document, bool config ) {
     int buf_size = 512;
     char buf[buf_size];
 
@@ -357,13 +357,18 @@ void send_json( char *topic, JsonDocument *document ) {
 
     serializeJson( *document, buf, buf_size );
 
-    if ( !mqtt_publish( &mqtt_client, topic, buf, false, 0, false ) ) {
-        Serial.print( "Failed to publish state: " );
-        Serial.println( buf );
+    if ( config ) {
+        mqtt_publish_config( &mqtt_client, topic, buf );
     }
     else {
-        Serial.print( "Published: " );
-        Serial.println( buf );
+        if ( !mqtt_publish( &mqtt_client, topic, buf, false, 0, false ) ) {
+            Serial.print( "Failed to publish state: " );
+            Serial.println( buf );
+        }
+        else {
+            Serial.print( "Published: " );
+            Serial.println( buf );
+        }
     }
 }
 
