@@ -512,17 +512,31 @@ void build_config_pressure( JsonDocument *document ) {
     (*document)["state_topic"] = "homeassistant/sensor/" + String( sensor_name ) + "/state";
     (*document)["name"] = String( sensor_name_nice ) + " Pressure";
     (*document)["device_class"] = "pressure";
-    (*document)["unit_of_measurement"] = "Pa";
+    if ( use_metric ) {
+        (*document)["unit_of_measurement"] = "hPa";
+    }
+    else {
+        (*document)["unit_of_measurement"] = "inHg";
+    }
     (*document)["value_template"] = "{{ value_json.pressure }}";
     (*document)["device"]["name"] = sensor_name_nice;
     (*document)["device"]["identifiers"] = sensor_name;
 }
 
 void read_pressure( double* pressure ) {
+    double pressure_pa = NAN;
     *pressure = NAN;
 #ifdef USE_BMP280
-    *pressure = sensor.readPressure();
+    pressure_pa = sensor.readPressure();
 #endif
+    if ( !isnan( pressure_pa ) ) {
+        if ( use_metric ) {
+            *pressure = pressure_pa / 100;
+        }
+        else {
+            *pressure = pressure_pa / 3386.389;
+        }
+    }
     if ( isnan( *pressure ) ) {
         Serial.println( "Unable to take pressure measurement" );
     }
