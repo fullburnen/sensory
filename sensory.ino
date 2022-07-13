@@ -26,6 +26,7 @@
 #endif
 
 #define LED_STATUS_PIN 13
+#define MAX_CONN_ATTEMPTS 5
 
 #ifdef REPORT_TEMPERATURE
 #define MQTT_TOPIC_CONFIG_TEMPERATURE "homeassistant/sensor/" SENSOR_NAME "_T/config"
@@ -150,9 +151,11 @@ void setup() {
     rtc.setEpoch( 0 );
 #endif
 
-    setup_wifi();
-    setup_mqtt();
-    send_config();
+    if ( setup_wifi() ) {
+        if ( setup_mqtt() ) {
+            send_config();
+        }
+    }
 
     Serial.println( "Boot done" );
 }
@@ -191,45 +194,48 @@ void loop() {
         wifi_status = WL_IDLE_STATUS;
         setup_wifi();
     }
-    if ( !mqtt_client.connected() ) {
-        setup_mqtt();
-        send_config();
+    if ( wifi_status == WL_CONNECTED && !mqtt_client.connected() ) {
+        if ( setup_mqtt() ) {
+            send_config();
+        }
     }
 
+    if ( mqtt_client.connected() ) {
 #ifdef REPORT_TEMPERATURE
-    read_temperature( &temperature );
-    if ( !isnan( temperature ) ) {
-        temperature = round_double( temperature, 2 );
-        json_doc["temperature"] = temperature;
-    }
+        read_temperature( &temperature );
+        if ( !isnan( temperature ) ) {
+            temperature = round_double( temperature, 2 );
+            json_doc["temperature"] = temperature;
+        }
 #endif
 
 #ifdef REPORT_VOLTAGE
-    read_voltage( &voltage );
-    if ( !isnan( voltage ) ) {
-        voltage = round_double( voltage, 1 );
-        json_doc["voltage"] = voltage;
-    }
+        read_voltage( &voltage );
+        if ( !isnan( voltage ) ) {
+            voltage = round_double( voltage, 1 );
+            json_doc["voltage"] = voltage;
+        }
 #endif
 
 #ifdef REPORT_HUMIDITY
-    read_humidity( &humidity );
-    if ( !isnan( humidity ) ) {
-        humidity = round_double( humidity, 2 );
-        json_doc["humidity"] = humidity;
-    }
+        read_humidity( &humidity );
+        if ( !isnan( humidity ) ) {
+            humidity = round_double( humidity, 2 );
+            json_doc["humidity"] = humidity;
+        }
 #endif
 
 #ifdef REPORT_PRESSURE
-    read_pressure( &pressure );
-    if ( !isnan( pressure ) ) {
-        pressure = round_double( pressure, 2 );
-        json_doc["pressure"] = pressure;
-    }
+        read_pressure( &pressure );
+        if ( !isnan( pressure ) ) {
+            pressure = round_double( pressure, 2 );
+            json_doc["pressure"] = pressure;
+        }
 #endif
 
-    if ( !json_doc.isNull() ) {
-        send_json( mqtt_topic_state, &json_doc, false );
+        if ( !json_doc.isNull() ) {
+            send_json( mqtt_topic_state, &json_doc, false );
+        }
     }
 
     digitalWrite( LED_STATUS_PIN, LOW );
@@ -247,14 +253,23 @@ void loop() {
 //Setup functions
 //=============================================================================
 
-void setup_wifi() {
-    while ( wifi_status != WL_CONNECTED ) {
+bool setup_wifi() {
+    int tries = 0;
+
+    while ( wifi_status != WL_CONNECTED && tries < MAX_CONN_ATTEMPTS ) {
+        tries++;
         Serial.print( "Connecting to SSID: " );
         Serial.println( ssid );
         wifi_status = WiFi.begin( ssid, pass );
         delay( 10000 );
     }
-    Serial.println( "Connected" );
+
+    if ( wifi_status != WL_CONNECTED ) {
+        Serial.println( "Failed to connect to SSID" );
+        return false;
+    }
+
+    Serial.println( "Connected to SSID" );
     WiFi.maxLowPowerMode();
 
     IPAddress addr = WiFi.localIP();
@@ -263,9 +278,12 @@ void setup_wifi() {
     Serial.print( "Wifi IP: " );
     Serial.println( buf );
 
+    return true;
 }
 
-void setup_mqtt() {
+bool setup_mqtt() {
+    int tries = 0;
+
     Serial.print( "Connecting to broker: " );
     Serial.println( mqtt_server );
 
@@ -273,11 +291,19 @@ void setup_mqtt() {
     mqtt_client.setUsernamePassword( mqtt_username, mqtt_password );
     mqtt_client.setKeepAliveInterval( 600 ); //Default to 10 minutes or double the default report interval
 
-    while ( !mqtt_client.connect( mqtt_server, mqtt_port ) ) {
+    while ( !mqtt_client.connect( mqtt_server, mqtt_port ) && tries < MAX_CONN_ATTEMPTS ) {
+        tries++;
         Serial.print( "Error: " );
         Serial.println( mqtt_client.connectError() );
         delay( 10000 );
     }
+
+    if ( tries >= MAX_CONN_ATTEMPTS ) {
+        Serial.println( "Failed to connect to broker" );
+        return false;
+    }
+
+    return true;
 }
 
 void setup_serial( bool blocking ) {
