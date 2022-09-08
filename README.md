@@ -1,5 +1,4 @@
-Sensory
----
+# Sensory
 
 A simple Arduino sensor for Home Assistant that reports over MQTT. Supports Home Assistant's MQTT Discovery.
 
@@ -26,3 +25,8 @@ Sensor data supported:
 * Voltage
 * Humidity
 * Pressure
+
+## Example
+![Picture of exterior](docs/images/exterior.jpg)
+
+![Picture of interior](docs/images/interior.jpg)
