@@ -9,6 +9,12 @@
 #include <RTCZero.h>
 #endif
 
+#define USE_WDT
+#ifdef USE_WDT
+#include <Adafruit_SleepyDog.h>
+#define WDT_INTERVAL_MS 180000 //3 minutes
+#endif
+
 #define REPORT_INTERVAL_MS REPORT_INTERVAL_S * 1000
 
 #ifdef USE_BMP280
@@ -158,16 +164,24 @@ void setup() {
     rtc.setEpoch( 0 );
 #endif
 
+#ifdef USE_WDT
+    Watchdog.enable( WDT_INTERVAL_MS );
     if ( setup_wifi() ) {
         if ( setup_mqtt() ) {
             send_config();
         }
     }
+    Watchdog.disable();
+#endif
 
     Serial.println( "Boot done" );
 }
 
 void loop() {
+#ifdef USE_WDT
+    Watchdog.enable( WDT_INTERVAL_MS );
+#endif
+
 #ifdef REPORT_TEMPERATURE
     double temperature = NAN;
 #endif
@@ -263,6 +277,9 @@ void loop() {
     rtc.enableAlarm( rtc.MATCH_YYMMDDHHMMSS );
     rtc.standbyMode();
 #else
+#ifdef USE_WDT
+    Watchdog.disable();
+#endif
     delay( REPORT_INTERVAL_MS );
 #endif
 }
@@ -276,6 +293,7 @@ bool setup_wifi() {
 
     while ( wifi_status != WL_CONNECTED && tries < MAX_CONN_ATTEMPTS ) {
         tries++;
+        WiFi.end();
         Serial.print( "Connecting to SSID: " );
         Serial.println( ssid );
         wifi_status = WiFi.begin( ssid, pass );
