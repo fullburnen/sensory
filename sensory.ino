@@ -40,6 +40,10 @@
 #ifdef REPORT_PRESSURE
 #define MQTT_TOPIC_CONFIG_PRESSURE "homeassistant/sensor/" SENSOR_NAME "_P/config"
 #endif
+#ifdef REPORT_MEMORY
+extern "C" char* sbrk(int incr);
+#define MQTT_TOPIC_CONFIG_MEMORY "homeassistant/sensor/" SENSOR_NAME "_M/config"
+#endif
 
 #define MQTT_TOPIC_STATE "homeassistant/sensor/" SENSOR_NAME "/state"
 
@@ -86,6 +90,9 @@ char mqtt_topic_config_humidity[] = MQTT_TOPIC_CONFIG_HUMIDITY;
 #endif
 #ifdef REPORT_PRESSURE
 char mqtt_topic_config_pressure[] = MQTT_TOPIC_CONFIG_PRESSURE;
+#endif
+#ifdef REPORT_MEMORY
+char mqtt_topic_config_memory[] = MQTT_TOPIC_CONFIG_MEMORY;
 #endif
 char mqtt_topic_state[] = MQTT_TOPIC_STATE;
 char sensor_name[] = SENSOR_NAME;
@@ -173,6 +180,9 @@ void loop() {
 #ifdef REPORT_PRESSURE
     double pressure = NAN;
 #endif
+#ifdef REPORT_MEMORY
+    double memory = NAN;
+#endif
     StaticJsonDocument<512> json_doc;
 
     digitalWrite( LED_STATUS_PIN, HIGH );
@@ -230,6 +240,14 @@ void loop() {
         if ( !isnan( pressure ) ) {
             pressure = round_double( pressure, 2 );
             json_doc["pressure"] = pressure;
+        }
+#endif
+
+#ifdef REPORT_MEMORY
+        read_memory( &memory );
+        if ( !isnan( memory ) ) {
+            memory = round_double( memory, 2 );
+            json_doc["memory"] = memory;
         }
 #endif
 
@@ -368,6 +386,12 @@ void send_config() {
 #ifdef REPORT_PRESSURE
     build_config_pressure( &json_doc );
     send_json( mqtt_topic_config_pressure, &json_doc, true );
+    json_doc.clear();
+#endif
+
+#ifdef REPORT_MEMORY
+    build_config_memory( &json_doc );
+    send_json( mqtt_topic_config_memory, &json_doc, true );
     json_doc.clear();
 #endif
 }
@@ -539,6 +563,33 @@ void read_pressure( double* pressure ) {
     }
     if ( isnan( *pressure ) ) {
         Serial.println( "Unable to take pressure measurement" );
+    }
+}
+#endif
+
+#ifdef REPORT_MEMORY
+void build_config_memory( JsonDocument *document ) {
+    (*document)["unique_id"] = String( sensor_name ) + "_memory";
+    (*document)["state_topic"] = "homeassistant/sensor/" + String( sensor_name ) + "/state";
+    (*document)["name"] = String( sensor_name_nice ) + " Memory";
+    (*document)["unit_of_measurement"] = "bytes";
+    (*document)["value_template"] = "{{ value_json.memory }}";
+    (*document)["device"]["name"] = sensor_name_nice;
+    (*document)["device"]["identifiers"] = sensor_name;
+}
+
+void read_memory( double* memory ) {
+    double memory_b = NAN;
+    *memory = NAN;
+    char top;
+
+    memory_b = &top - reinterpret_cast<char *>( sbrk( 0 ) );
+
+    if ( !isnan( memory_b ) ) {
+        *memory = memory_b;
+    }
+    if ( isnan( *memory ) ) {
+        Serial.println( "Unable to take memory measurement" );
     }
 }
 #endif
