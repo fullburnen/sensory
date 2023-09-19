@@ -3,8 +3,8 @@
 #define SECRET_PASS "password"
 
 //Device name
-#define SENSOR_NAME "sensor1"
-#define SENSOR_NAME_NICE "Sensor 1"
+#define SENSOR_NAME "sensory1"
+#define SENSOR_NAME_NICE "Sensory 1"
 
 //MQTT server information
 #define MQTT_SERVER "localhost"
