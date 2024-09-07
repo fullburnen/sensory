@@ -4,6 +4,8 @@
 #include <WiFi101.h>
 #include <ArduinoJson.h>
 
+#define VERSION "1.0"
+
 //#define USE_RTC
 #ifdef USE_RTC
 #include <RTCZero.h>
@@ -462,6 +464,14 @@ bool IPAddress_to_cstr( IPAddress addr, char* buf, int buf_size ) {
     return true;
 }
 
+void build_config_device( JsonDocument *document ) {
+    (*document)["device"]["name"] = sensor_name_nice;
+    (*document)["device"]["identifiers"] = sensor_name;
+    (*document)["device"]["manufacturer"] = "fullburnen";
+    (*document)["device"]["model"] = "Sensory";
+    (*document)["device"]["sw_version"] = VERSION;
+}
+
 //=============================================================================
 //Sensor functions
 //=============================================================================
@@ -479,8 +489,7 @@ void build_config_temperature( JsonDocument *document ) {
         (*document)["unit_of_measurement"] = "°F";
     }
     (*document)["value_template"] = "{{ value_json.temperature }}";
-    (*document)["device"]["name"] = sensor_name_nice;
-    (*document)["device"]["identifiers"] = sensor_name;
+    build_config_device( document );
 }
 
 void read_temperature( double* temperature ) {
@@ -515,8 +524,7 @@ void build_config_voltage( JsonDocument *document ) {
     (*document)["device_class"] = "voltage";
     (*document)["unit_of_measurement"] = "V";
     (*document)["value_template"] = "{{ value_json.voltage }}";
-    (*document)["device"]["name"] = sensor_name_nice;
-    (*document)["device"]["identifiers"] = sensor_name;
+    build_config_device( document );
 }
 
 void read_voltage( double* voltage_v ) {
@@ -533,8 +541,7 @@ void build_config_humidity( JsonDocument *document ) {
     (*document)["device_class"] = "humidity";
     (*document)["unit_of_measurement"] = "%";
     (*document)["value_template"] = "{{ value_json.humidity }}";
-    (*document)["device"]["name"] = sensor_name_nice;
-    (*document)["device"]["identifiers"] = sensor_name;
+    build_config_device( document );
 }
 
 void read_humidity( double* humidity ) {
@@ -561,8 +568,7 @@ void build_config_pressure( JsonDocument *document ) {
         (*document)["unit_of_measurement"] = "inHg";
     }
     (*document)["value_template"] = "{{ value_json.pressure }}";
-    (*document)["device"]["name"] = sensor_name_nice;
-    (*document)["device"]["identifiers"] = sensor_name;
+    build_config_device( document );
 }
 
 void read_pressure( double* pressure ) {
@@ -592,8 +598,7 @@ void build_config_memory( JsonDocument *document ) {
     (*document)["name"] = String( sensor_name_nice ) + " Memory";
     (*document)["unit_of_measurement"] = "bytes";
     (*document)["value_template"] = "{{ value_json.memory }}";
-    (*document)["device"]["name"] = sensor_name_nice;
-    (*document)["device"]["identifiers"] = sensor_name;
+    build_config_device( document );
 }
 
 void read_memory( double* memory ) {
