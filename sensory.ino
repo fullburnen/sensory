@@ -523,6 +523,7 @@ void build_config_voltage( JsonDocument *document ) {
     (*document)["name"] = String( sensor_name_nice ) + " Voltage";
     (*document)["device_class"] = "voltage";
     (*document)["unit_of_measurement"] = "V";
+    (*document)["suggested_display_precision"] = 2;
     (*document)["value_template"] = "{{ value_json.voltage }}";
     build_config_device( document );
 }
